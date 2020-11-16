@@ -1,7 +1,7 @@
 package com.example.photogallery.controller.fragment;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,17 +14,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.photogallery.R;
 import com.example.photogallery.model.GalleryItem;
-import com.example.photogallery.network.FlickrFetcher;
 import com.example.photogallery.repository.PhotoRepository;
 
-import java.io.IOException;
 import java.util.List;
 
 public class PhotoGalleryFragment extends Fragment {
 
     private static final int SPAN_COUNT = 3;
     private RecyclerView mRecyclerView;
-    private TextView mTextView;
     private PhotoRepository mRepository;
 
     public PhotoGalleryFragment() {
@@ -44,29 +41,8 @@ public class PhotoGalleryFragment extends Fragment {
 
         mRepository = new PhotoRepository();
 
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                FlickrFetcher flickrFetcher = new FlickrFetcher();
-                try {
-
-                    final String response = flickrFetcher.getUrlString("https://www.digikala.com/");
-                    Log.d("PGF", response);
-
-                    getActivity().runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mTextView.setText(response);
-                        }
-                    });
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-        thread.start();
-
+        FlickrTask flickrTask = new FlickrTask();
+        flickrTask.execute();
     }
 
     @Override
@@ -77,22 +53,19 @@ public class PhotoGalleryFragment extends Fragment {
 
         findViews(view);
         initViews();
-        setupAdapter();
 
         return view;
     }
 
     private void findViews(View view) {
         mRecyclerView = view.findViewById(R.id.recycler_view_photo_gallery);
-        mTextView = view.findViewById(R.id.txt_text);
     }
 
     private void initViews() {
         mRecyclerView.setLayoutManager(new GridLayoutManager(getContext(), SPAN_COUNT));
     }
 
-    private void setupAdapter() {
-        List<GalleryItem> items = mRepository.getItems();
+    private void setupAdapter(List<GalleryItem> items) {
         PhotoAdapter adapter = new PhotoAdapter(items);
         mRecyclerView.setAdapter(adapter);
     }
@@ -146,6 +119,26 @@ public class PhotoGalleryFragment extends Fragment {
         @Override
         public int getItemCount() {
             return mItems.size();
+        }
+    }
+
+    private class FlickrTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+
+        @Override
+        protected List<GalleryItem> doInBackground(Void... voids) {
+            return mRepository.fetchItems();
+
+        }
+
+        @Override
+        protected void onPostExecute(List<GalleryItem> items) {
+            super.onPostExecute(items);
+            setupAdapter(items);
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
         }
     }
 }
